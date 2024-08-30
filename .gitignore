@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Entorno Virtual
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Archivos de Configuración del Editor
+.vscode/
+.idea/
+*.swp
+
+# Archivos de Logs
+*.log
+
+# Excluir el archivo .env
+.env
+
+# Archivos de base de datos locales
+*.sqlite3
+
+# Archivos específicos de sistema operativo
+.DS_Store
+Thumbs.db
