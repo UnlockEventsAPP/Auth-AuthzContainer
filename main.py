@@ -1,4 +1,4 @@
-from database import engine, Base, get_db
+from database import engine, Base, get_db, create_tables
 from routers import users, admins
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
@@ -18,3 +18,7 @@ def test_db_connection(db: Session = Depends(get_db)):
         return {"status": "success", "result": result}
     except SQLAlchemyError as e:
         return {"status": "failure", "error": str(e)}
+
+    @app.on_event("startup")
+    def on_startup():
+        create_tables()

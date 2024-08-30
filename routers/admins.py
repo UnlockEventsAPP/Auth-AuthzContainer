@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from models import Administrador
 from schemas import AdministradorCreate, Administrador as AdminSchema
@@ -6,10 +7,22 @@ from database import get_db
 
 router = APIRouter()
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    hashed_password = pwd_context.hash(password)
+    print(f"Generated Hash: {hashed_password}")
+    return hashed_password
 
 @router.post("/administradores/", response_model=AdminSchema)
 def create_admin(admin: AdministradorCreate, db: Session = Depends(get_db)):
-    db_admin = Administrador(nombre=admin.nombre, email=admin.email, telefono=admin.telefono)
+    hashed_password = get_password_hash(admin.password)
+    db_admin = Administrador(
+        nombre=admin.nombre,
+        email=admin.email,
+        telefono=admin.telefono,
+        hashed_password=hashed_password
+    )
     db.add(db_admin)
     db.commit()
     db.refresh(db_admin)
@@ -33,6 +46,7 @@ def update_admin(admin_id: int, admin: AdministradorCreate, db: Session = Depend
     db_admin.nombre = admin.nombre
     db_admin.email = admin.email
     db_admin.telefono = admin.telefono
+    db_admin.hashed_password = get_password_hash(admin.password)
 
     db.commit()
     db.refresh(db_admin)

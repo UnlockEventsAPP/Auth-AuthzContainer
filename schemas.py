@@ -13,7 +13,7 @@ class Usuario(UsuarioBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class AdministradorBase(BaseModel):
     nombre: str
@@ -21,10 +21,10 @@ class AdministradorBase(BaseModel):
     telefono: str
 
 class AdministradorCreate(AdministradorBase):
-    pass
+    password: str
 
 class Administrador(AdministradorBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
