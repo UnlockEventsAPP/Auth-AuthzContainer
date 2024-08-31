@@ -1,19 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
 from models import Usuario
-from schemas import UsuarioCreate, Usuario as UserSchema
+from schemas import UsuarioCreate, Usuario as UserSchema, LoginRequest
 from database import get_db
+from .auth import create_access_token, verify_password, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES, decode_access_token
+from datetime import timedelta
 
 router = APIRouter()
-
-# Configuración de PassLib para hashing de contraseñas
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
 
 # Crear un usuario
 @router.post("/usuarios/", response_model=UserSchema)
@@ -31,41 +24,31 @@ def create_user(user: UsuarioCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
+# Endpoint para login y obtener un token JWT
+@router.post("/login/")
+def login_for_access_token(login_data: LoginRequest, db: Session = Depends(get_db)):
+    db_user = db.query(Usuario).filter(Usuario.email == login_data.email).first()
+    if not db_user or not verify_password(login_data.password, db_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": db_user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
-# Obtener un usuario por ID
-@router.get("/usuarios/{user_id}", response_model=UserSchema)
-def read_user(user_id: int, db: Session = Depends(get_db)):
-    db_user = db.query(Usuario).filter(Usuario.id == user_id).first()
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+# Proteger un endpoint usando el token JWT
+@router.get("/usuarios/me/", response_model=UserSchema)
+def read_users_me(db: Session = Depends(get_db), token: str = Depends(decode_access_token)):
+    email = token.get("sub")
+    if email is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-
-# Actualizar un usuario
-@router.put("/usuarios/{user_id}", response_model=UserSchema)
-def update_user(user_id: int, user: UsuarioCreate, db: Session = Depends(get_db)):
-    db_user = db.query(Usuario).filter(Usuario.id == user_id).first()
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    db_user.nombre = user.nombre
-    db_user.email = user.email
-    db_user.telefono = user.telefono
-    db_user.estado = user.estado
-    db_user.hashed_password = get_password_hash(user.password)
-
-    db.commit()
-    db.refresh(db_user)
-    return db_user
-
-
-# Eliminar un usuario
-@router.delete("/usuarios/{user_id}", response_model=UserSchema)
-def delete_user(user_id: int, db: Session = Depends(get_db)):
-    db_user = db.query(Usuario).filter(Usuario.id == user_id).first()
+    db_user = db.query(Usuario).filter(Usuario.email == email).first()
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    db.delete(db_user)
-    db.commit()
     return db_user

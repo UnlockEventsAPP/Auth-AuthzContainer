@@ -21,3 +21,4 @@ class Administrador(Base):
     hashed_password = Column(String(255))
 
 
+

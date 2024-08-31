@@ -1,19 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
-from passlib.context import CryptContext
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from models import Administrador
-from schemas import AdministradorCreate, Administrador as AdminSchema
+from schemas import AdministradorCreate, Administrador as AdminSchema, AdminLogin
 from database import get_db
+from .auth import create_access_token, verify_password, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES, decode_access_token
+
+from datetime import timedelta
 
 router = APIRouter()
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def get_password_hash(password: str) -> str:
-    hashed_password = pwd_context.hash(password)
-    print(f"Generated Hash: {hashed_password}")
-    return hashed_password
-
+# Crear un administrador
 @router.post("/administradores/", response_model=AdminSchema)
 def create_admin(admin: AdministradorCreate, db: Session = Depends(get_db)):
     hashed_password = get_password_hash(admin.password)
@@ -29,36 +26,32 @@ def create_admin(admin: AdministradorCreate, db: Session = Depends(get_db)):
     return db_admin
 
 
-@router.get("/administradores/{admin_id}", response_model=AdminSchema)
-def read_admin(admin_id: int, db: Session = Depends(get_db)):
-    db_admin = db.query(Administrador).filter(Administrador.id == admin_id).first()
+# Endpoint para login y obtener un token JWT
+@router.post("/admin-login/")
+def login_for_access_token(admin: AdminLogin, db: Session = Depends(get_db)):
+    db_admin = db.query(Administrador).filter(Administrador.email == admin.email).first()
+    if not db_admin or not verify_password(admin.password, db_admin.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": db_admin.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+# Proteger un endpoint usando el token JWT
+@router.get("/administradores/me/", response_model=AdminSchema)
+def read_admin_me(db: Session = Depends(get_db), token: str = Depends(decode_access_token)):
+    email = token.get("sub")
+    if email is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    db_admin = db.query(Administrador).filter(Administrador.email == email).first()
     if db_admin is None:
         raise HTTPException(status_code=404, detail="Admin not found")
-    return db_admin
 
-
-@router.put("/administradores/{admin_id}", response_model=AdminSchema)
-def update_admin(admin_id: int, admin: AdministradorCreate, db: Session = Depends(get_db)):
-    db_admin = db.query(Administrador).filter(Administrador.id == admin_id).first()
-    if db_admin is None:
-        raise HTTPException(status_code=404, detail="Admin not found")
-
-    db_admin.nombre = admin.nombre
-    db_admin.email = admin.email
-    db_admin.telefono = admin.telefono
-    db_admin.hashed_password = get_password_hash(admin.password)
-
-    db.commit()
-    db.refresh(db_admin)
-    return db_admin
-
-
-@router.delete("/administradores/{admin_id}", response_model=AdminSchema)
-def delete_admin(admin_id: int, db: Session = Depends(get_db)):
-    db_admin = db.query(Administrador).filter(Administrador.id == admin_id).first()
-    if db_admin is None:
-        raise HTTPException(status_code=404, detail="Admin not found")
-
-    db.delete(db_admin)
-    db.commit()
     return db_admin
