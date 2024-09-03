@@ -3,5 +3,5 @@ from routers import users, admins, auth
 
 app = FastAPI()
 
-app.include_router(users.router, prefix="/api/auth", tags=["usuarios"])
-app.include_router(admins.router, prefix="/api/auth", tags=["administradores"])
+app.include_router(users.router, prefix="/auth", tags=["usuarios"])
+app.include_router(admins.router, prefix="/auth", tags=["administradores"])
