@@ -6,5 +6,5 @@ python-dotenv
 passlib[bcrypt]
 pymysql
 python-jose[cryptography]
-passlib[bcrypt]
 cryptography
+bcrypt
