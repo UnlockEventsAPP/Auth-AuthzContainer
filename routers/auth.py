@@ -1,5 +1,7 @@
 import os
 from datetime import datetime, timedelta
+
+from fastapi import Depends, HTTPException, Request
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -27,9 +29,17 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def decode_access_token(token: str):
+def get_token_from_header(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization header missing or invalid")
+
+    token = auth_header.split(" ")[1]  # Extraer el token después de "Bearer"
+    return token
+
+def decode_access_token(token: str = Depends(get_token_from_header)):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except JWTError:
-        return None
+        raise HTTPException(status_code=401, detail="Invalid token")

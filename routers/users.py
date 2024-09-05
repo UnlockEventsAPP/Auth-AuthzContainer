@@ -42,7 +42,7 @@ def login_for_access_token(login_data: LoginRequest, db: Session = Depends(get_d
 
 # Proteger un endpoint usando el token JWT
 @router.get("/usuarios/me/", response_model=UserSchema)
-def read_users_me(db: Session = Depends(get_db), token: str = Depends(decode_access_token)):
+def read_users_me(db: Session = Depends(get_db), token: dict = Depends(decode_access_token)):
     email = token.get("sub")
     if email is None:
         raise HTTPException(status_code=401, detail="Invalid token")
