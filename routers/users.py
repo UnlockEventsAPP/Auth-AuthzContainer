@@ -1,5 +1,10 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import BackgroundTasks
 from sqlalchemy.orm import Session
+
+from mail import send_registration_email
 from models import Usuario
 from schemas import UsuarioCreate, Usuario as UserSchema, LoginRequest
 from database import get_db
@@ -10,7 +15,11 @@ router = APIRouter()
 
 # Crear un usuario
 @router.post("/usuarios/", response_model=UserSchema)
-def create_user(user: UsuarioCreate, db: Session = Depends(get_db)):
+def create_user(
+    user: UsuarioCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     hashed_password = get_password_hash(user.password)
     db_user = Usuario(
         nombre=user.nombre,
@@ -22,6 +31,10 @@ def create_user(user: UsuarioCreate, db: Session = Depends(get_db)):
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+
+    # Asegurarse de que los parámetros coincidan con la definición de la función
+    background_tasks.add_task(send_registration_email, user.email, user.nombre, os.getenv('FRONTEND_URL_USER'))
+
     return db_user
 
 # Endpoint para login y obtener un token JWT

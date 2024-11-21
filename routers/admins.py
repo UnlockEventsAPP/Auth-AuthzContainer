@@ -1,5 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
+
+from mail import send_registration_email
 from models import Administrador
 from schemas import AdministradorCreate, Administrador as AdminSchema, AdminLogin
 from database import get_db
@@ -12,7 +16,10 @@ router = APIRouter()
 
 # Crear un administrador
 @router.post("/administradores/", response_model=AdminSchema)
-def create_admin(admin: AdministradorCreate, db: Session = Depends(get_db)):
+def create_admin(
+        admin: AdministradorCreate,
+        background_tasks: BackgroundTasks,
+        db: Session = Depends(get_db)):
     hashed_password = get_password_hash(admin.password)
     db_admin = Administrador(
         nombre=admin.nombre,
@@ -23,6 +30,9 @@ def create_admin(admin: AdministradorCreate, db: Session = Depends(get_db)):
     db.add(db_admin)
     db.commit()
     db.refresh(db_admin)
+
+    # Enviar correo en segundo plano con el enlace específico para administradores
+    background_tasks.add_task(send_registration_email, admin.email, admin.nombre, os.getenv('FRONTEND_URL_ADMIN'))
     return db_admin
 
 
