@@ -65,3 +65,13 @@ def read_users_me(db: Session = Depends(get_db), token: dict = Depends(decode_ac
         raise HTTPException(status_code=404, detail="User not found")
 
     return db_user
+
+# Endpoint para listar todos los usuarios
+@router.get("/getall-usuarios/", response_model=list[UserSchema])
+def list_users(db: Session = Depends(get_db)):
+    """
+    Obtener todos los usuarios registrados en el sistema.
+    """
+    users = db.query(Usuario).all()
+    return users
+
